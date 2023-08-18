@@ -1,13 +1,13 @@
-package com.hezf.security;
+package com.hezf.demo;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class SecurityApplication {
+public class DemoApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(SecurityApplication.class, args);
+		SpringApplication.run(DemoApplication.class, args);
 	}
 
 }
