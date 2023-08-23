@@ -55,4 +55,38 @@ public class IndexController {
 
 在密码出现的下方有一条：This generated password is for development use only. Your security configuration must be updated before running your application in production.
 
-这是告诉我们，这个用户和密码只是在开发阶段调试使用，生产环境不要这么使用，接下来我们自定义用户和密码。
+这是告诉我们，这个用户和密码只是在开发阶段调试使用，生产环境不要这么使用，接下来我们自定义用户和密码。session1
+
+## 内存认证
+
+在`src/main/java/com/hezf/demo/DemoApplication.java`同级别目录新建文件`DefaultSecurityConfig.java`，写下：
+
+```java
+package com.hezf.demo;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+
+@EnableWebSecurity
+@Configuration
+public class DefaultSecurityConfig {
+
+  @Bean
+  public UserDetailsService users() {
+
+    UserDetails user = User.withDefaultPasswordEncoder().username("user").password("password")
+        .roles("user").build();
+    return new InMemoryUserDetailsManager(user);
+  }
+
+}
+```
+
+这时候重启项目，发现控制台没有`Using generated security password`等信息出现了，可以使用 `user` 和 `password` 进行登录，登录后可以访问 IndexController。
+
+这种内存用户可以快速的验证登录和一些权限控制，在项目中添加了 `Spring Security` 之后，默认对所有接口都开启了访问控制，只有已认证用户（已登录）才可以访问，所以才需要登录。session2
