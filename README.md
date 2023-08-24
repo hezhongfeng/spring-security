@@ -89,4 +89,71 @@ public class DefaultSecurityConfig {
 
 这时候重启项目，发现控制台没有`Using generated security password`等信息出现了，可以使用 `user` 和 `password` 进行登录，登录后可以访问 IndexController。
 
-这种内存用户可以快速的验证登录和一些权限控制，在项目中添加了 `Spring Security` 之后，默认对所有接口都开启了访问控制，只有已认证用户（已登录）才可以访问，所以才需要登录。session2
+这种内存用户可以快速的验证登录和一些权限控制，在项目中添加了 `Spring Security` 之后，默认对所有接口都开启了访问控制，只有已认证用户（已登录）才可以访问，所以才需要登录,接下来我们尝试进行对 security 进行配置。 session2
+
+## SecurityConfig
+
+在项目中添加了 `Spring Security`，必须登录才能访问接口，那么怎么把这个限制关掉，这时候可以使用 SecurityFilterChain，在 DefaultSecurityConfig 添加 SecurityFilterChain
+
+```java
+@EnableWebSecurity
+@Configuration
+public class DefaultSecurityConfig {
+
+  @Bean
+  public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    return http.build();
+  }
+
+  @Bean
+  public UserDetailsService users() {
+
+    UserDetails user = User.withDefaultPasswordEncoder().username("user").password("password")
+        .roles("user").build();
+
+    return new InMemoryUserDetailsManager(user);
+  }
+
+}
+
+```
+
+当添加上面的配置重启后，发现接口可以随便访问了，这是因为默认情况下，Spring Security 接口保护、表单登录被启用。然而，只要提供任何 SecurityFilterChain 配置，就必须明确接口保护和基于表单的登录。为了实现之前的接口保护和表单登录，需要如下配置：
+
+```java
+  @Bean
+  public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+
+    http.authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated());
+
+    http.formLogin(Customizer.withDefaults());
+
+    return http.build();
+  }
+```
+
+如果想把接口保护去掉，那么上面的配置改为`http.authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll());` 意思就是放行所有请求
+
+## API 接口限制
+
+3 种接口，一种不需要登录，一种登录就行，另外一个需要特殊权限
+
+## JWT
+
+## 自定义登录接口
+
+## 自定义添加用户
+
+## 多个 SecurityFilterChain
+
+添加完后，重启项目，就可以不登录直接访问之前的接口了。
+
+Spring Security 基于过滤器链的概念，可以轻松地集成到任何基于 Spring 的应用程序中。即通过一层层的 Filters 来对 web 请求做处理。
+
+![filterchainproxy](https://springdoc.cn/spring-security/_images/servlet/architecture/filterchainproxy.png)
+
+接下来说一下 SecurityFilterChain ，SecurityFilterChain 被 FilterChainProxy 用来确定当前请求应该调用哪些 Spring Security Filter 实例。也就是说，Spring Security 的安全管理是一层一层的
+
+同时可以设置多个 SecurityFilterChain，像下面这样：
+
+![multi-securityfilterchain](https://springdoc.cn/spring-security/_images/servlet/architecture/multi-securityfilterchain.png)
