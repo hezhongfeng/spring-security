@@ -202,11 +202,75 @@ public class DefaultSecurityConfig {
 }
 ```
 
-然后就可以用 user 和 user1 完成登录了
+然后就可以用 user 和 user1 完成登录了 session3
 
 ## API 接口限制
 
-3 种接口，一种不需要登录，一种登录就行，另外一个需要特殊权限
+在实际开发中，有的接口可以随便访问，比如 login 接口，有的接口必须登录后才可以访问，比如查询当前用户信息的接口。有的接口可以管理其他用户，那就必须具有管理员权限才可以访问。
+
+接下来创建 3 种接口，一种不需要登录，一种登录就行，另外一个需要特殊权限才可以访问。首先创建这 3 个接口：
+
+```java
+@RestController
+public class IndexController {
+
+  // 公开接口，可以随便访问
+  @RequestMapping("/public")
+  public String index() {
+    return "Hello Public!";
+  }
+
+  // 需要认证用户才可以访问
+  @RequestMapping("/user")
+  public String user() {
+    return "Hello User!";
+  }
+
+  // 需要具有 ADMIN 权限才可以访问
+  @RequestMapping("/admin")
+  public String admin() {
+    return "Hello Admin!";
+  }
+}
+```
+
+接下来配置 SecurityFilterChain：
+
+```java
+  @Bean
+  public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+
+    // @formatter:off
+    http.authorizeHttpRequests(authorize -> authorize
+      .requestMatchers("/public").permitAll() // /public 接口可以公开访问
+      .requestMatchers("/admin").hasAuthority("ADMIN") // /admin 接口需要 ADMIN 权限
+      .anyRequest().authenticated()); // 其他的所以接口都需要认证才可以访问
+    // @formatter:on
+
+    http.formLogin(Customizer.withDefaults());
+
+    return http.build();
+  }
+```
+
+然后准备用户数据：
+
+```java
+  @PostConstruct
+  public void init() {
+
+    UserDetails user = User.withDefaultPasswordEncoder().username("user").password("password")
+        .authorities("USER").build();
+
+    UserDetails admin = User.withDefaultPasswordEncoder().username("admin").password("password")
+        .authorities("ADMIN").build();
+
+    userRegistry.put("user", user);
+    userRegistry.put("admin", admin);
+  }
+```
+
+重启项目访问 `http://localhost:8080/public` 成功访问。接下来访问 `http://localhost:8080/user` 会要求登录，我们输入 user 的用户名和密码，成功访问。接下来访问 `http://localhost:8080/admin` 发现返回了 403 状态吗，告诉我们权限不正确，这时候清空下 cookie 重新使用 admin 登录即可访问。到此，，我们实现了最小型的接口权限控制。session4
 
 ## JWT
 

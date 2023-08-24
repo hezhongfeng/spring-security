@@ -18,13 +18,13 @@ public class CustomUserDetailsService implements UserDetailsService {
   public void init() {
 
     UserDetails user = User.withDefaultPasswordEncoder().username("user").password("password")
-        .roles("user").build();
+        .authorities("USER").build();
 
-    UserDetails user1 = User.withDefaultPasswordEncoder().username("user1").password("password")
-        .roles("user").build();
+    UserDetails admin = User.withDefaultPasswordEncoder().username("admin").password("password")
+        .authorities("ADMIN").build();
 
     userRegistry.put("user", user);
-    userRegistry.put("user1", user1);
+    userRegistry.put("admin", admin);
   }
 
   @Override
