@@ -134,6 +134,76 @@ public class DefaultSecurityConfig {
 
 如果想把接口保护去掉，那么上面的配置改为`http.authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll());` 意思就是放行所有请求
 
+## UserDetailsService
+
+前面我们使用了内存用户通过登录获取认证，来访问接口。实际在开发过程中用户信息肯定是要持久化的，要存到数据库中去，这时候最好实现一个 UserDetailsService 用来检索用户名、密码和其他属性。
+
+新建`CustomUserDetailsService.java`文件：
+
+```java
+package com.hezf.demo;
+
+import java.util.HashMap;
+import java.util.Map;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Service;
+import jakarta.annotation.PostConstruct;
+
+@Service
+public class CustomUserDetailsService implements UserDetailsService {
+
+  private final Map<String, UserDetails> userRegistry = new HashMap<>();
+
+  @PostConstruct
+  public void init() {
+
+    UserDetails user = User.withDefaultPasswordEncoder().username("user").password("password")
+        .roles("user").build();
+
+    UserDetails user1 = User.withDefaultPasswordEncoder().username("user1").password("password")
+        .roles("user").build();
+
+    userRegistry.put("user", user);
+    userRegistry.put("user1", user1);
+  }
+
+  @Override
+  public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+    // 生产这里是去数据库查询用户
+    UserDetails userDetails = userRegistry.get(username);
+    if (userDetails == null) {
+      throw new UsernameNotFoundException(username);
+    }
+    return userDetails;
+  }
+}
+
+```
+
+DefaultSecurityConfig 修改一下：
+
+```java
+@EnableWebSecurity
+@Configuration
+public class DefaultSecurityConfig {
+
+  @Bean
+  public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+
+    http.authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated());
+
+    http.formLogin(Customizer.withDefaults());
+
+    return http.build();
+  }
+}
+```
+
+然后就可以用 user 和 user1 完成登录了
+
 ## API 接口限制
 
 3 种接口，一种不需要登录，一种登录就行，另外一个需要特殊权限
