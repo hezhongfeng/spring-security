@@ -270,15 +270,43 @@ public class IndexController {
   }
 ```
 
-重启项目访问 `http://localhost:8080/public` 成功访问。接下来访问 `http://localhost:8080/user` 会要求登录，我们输入 user 的用户名和密码，成功访问。接下来访问 `http://localhost:8080/admin` 发现返回了 403 状态吗，告诉我们权限不正确，这时候清空下 cookie 重新使用 admin 登录即可访问。到此，，我们实现了最小型的接口权限控制。session4
+重启项目访问 `http://localhost:8080/public` 成功访问。接下来访问 `http://localhost:8080/user` 会要求登录，我们输入 user 的用户名和密码，成功访问。接下来访问 `http://localhost:8080/admin` 发现返回了 403 状态吗，告诉我们权限不正确，这时候清空下 cookie 重新使用 admin 登录即可访问。到此，我们实现了最小型的接口权限控制。session4
 
-## JWT
+## 认证持久化
+
+当用户第一次请求受保护的资源时，会被重定向到登录页面，这时候用户被设置一个新的 Session ID，存在 Cookies 中的 JSESSIONID。随后的每次请求都会携带这个 cookie，用于在接下来的会话中验证用户的身份。使用 SecurityContext ，可以获取当前用户的认证信息，他们之间的关系可以看图：
+
+![securitycontextholder](https://springdoc.cn/spring-security/_images/servlet/authentication/architecture/securitycontextholder.png)
+
+```java
+  // 需要认证用户才可以访问
+  @RequestMapping("/user")
+  public String user() {
+    // 静态工具类 SecurityContextHolder 可以获取当前的 SecurityContext 也就是上下文
+    SecurityContext context = SecurityContextHolder.getContext();
+    // 认证，通过 authentication 可以获取当前用户的一些信息
+    Authentication authentication = context.getAuthentication();
+
+    // 检查是否已认证
+    System.out.println(authentication.isAuthenticated());
+
+    // 检查用户详情
+    UserDetails userDetail = (UserDetails) authentication.getPrincipal();
+    System.out.println(userDetail.getUsername());
+    System.out.println(userDetail.getPassword()); // 这里是没有密码的
+    System.out.println(userDetail.getAuthorities());
+
+    return "Hello User!";
+  }
+```
+
+上面的代码是在已认证的情况下，认证过程是 SpringSecurity 提供的登录页面和接口，下一步自己实现登录过程 session 5
 
 ## 自定义登录接口
 
 ## 自定义添加用户
 
-## 多个 SecurityFilterChain
+## JWT 和 多个 SecurityFilterChain
 
 添加完后，重启项目，就可以不登录直接访问之前的接口了。
 
