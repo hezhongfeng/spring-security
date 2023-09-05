@@ -357,6 +357,10 @@ public class LoginController {
 
 这时候重启项目，继续访问`/user`，会跳转到我们自定义的登录页面,其他和以前的一样。前面的配置修改是告诉 `spring security` 我们有自己的登录页面请求接口，`LoginController` 是为了返回这个自定义登录页面,上面添加的`thymeleaf`是为了解析登录页面 `login.html` session6
 
+## 自定义登录接口
+
+前面我们自定义了登录页面，如果想自己定义登录接口，就需要把 formLogin 关掉。
+
 ## JWT 登录
 
 ## JWT 和 多个 SecurityFilterChain
