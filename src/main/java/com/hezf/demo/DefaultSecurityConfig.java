@@ -2,7 +2,6 @@ package com.hezf.demo;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
@@ -21,7 +20,8 @@ public class DefaultSecurityConfig {
       .anyRequest().authenticated()); // 其他的所以接口都需要认证才可以访问
     // @formatter:on
 
-    http.formLogin(Customizer.withDefaults());
+    // http.formLogin(Customizer.withDefaults());
+    http.formLogin(form -> form.loginPage("/login").permitAll());
 
     return http.build();
   }

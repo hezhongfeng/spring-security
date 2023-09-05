@@ -302,9 +302,62 @@ public class IndexController {
 
 上面的代码是在已认证的情况下，认证过程是 SpringSecurity 提供的登录页面和接口，下一步自己实现登录过程 session 5
 
-## 自定义登录接口
+## 自定义登录页面
 
-## 自定义添加用户
+- 在`build.gradle`添加依赖`implementation "org.springframework.boot:spring-boot-starter-thymeleaf"`
+- 新建 `src/main/resources/templates/login.html` 页面：
+
+```html
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="https://www.thymeleaf.org">
+  <head>
+    <title>Custom Log In Page</title>
+  </head>
+  <body>
+    <h1>Please Log In</h1>
+    <div th:if="${param.error}">Invalid username and password.</div>
+    <div th:if="${param.logout}">You have been logged out.</div>
+    <form th:action="@{/login}" method="post">
+      <div>
+        <input type="text" name="username" placeholder="Username" />
+      </div>
+      <div>
+        <input type="password" name="password" placeholder="Password" />
+      </div>
+      <input type="submit" value="Log in" />
+    </form>
+  </body>
+</html>
+```
+
+- 在配置文件 DefaultSecurityConfig 修改：
+
+```java
+ http.formLogin(form -> form.loginPage("/login").permitAll());
+```
+
+- 新建文件`src/main/java/com/hezf/demo/LoginController.java`:
+
+```java
+package com.hezf.demo;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+
+@Controller
+public class LoginController {
+
+  @GetMapping("/login")
+  String login() {
+    return "login";
+  }
+}
+
+```
+
+这时候重启项目，继续访问`/user`，会跳转到我们自定义的登录页面,其他和以前的一样。前面的配置修改是告诉 `spring security` 我们有自己的登录页面请求接口，`LoginController` 是为了返回这个自定义登录页面,上面添加的`thymeleaf`是为了解析登录页面 `login.html` session6
+
+## JWT 登录
 
 ## JWT 和 多个 SecurityFilterChain
 
