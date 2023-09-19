@@ -359,7 +359,142 @@ public class LoginController {
 
 ## 自定义登录接口
 
-前面我们自定义了登录页面，如果想自己定义登录接口，就需要把 formLogin 关掉。
+前面我们自定义了登录页面，如果想自己定义登录接口，就需要把默认的 `formLogin` 关掉，否则即使声明了 `post login`的接口也没用，登录请求会被`formLogin` 拦截。所以我们直接注释掉 `formLogin` 相关就可以了，这里并不需要将 `formLogin` disabled 什么的。有了默认的 `SecurityFilterChain` 后，默认`formLogin`是关掉的。
+
+- 修改 DefaultSecurityConfig，这里需要注意，需要把 login 接口开放出来，这里新增了两个异常处理，因为我想实现未登录自动跳转到登录页面
+
+```java
+@EnableWebSecurity
+@Configuration
+public class DefaultSecurityConfig {
+
+  @Bean
+  public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+
+    // @formatter:off
+    http.authorizeHttpRequests(authorize -> authorize
+      .requestMatchers("/public","/login").permitAll() // /public 接口可以公开访问
+      .requestMatchers("/admin").hasAuthority("ADMIN") // /admin 接口需要 ADMIN 权限
+      .anyRequest().authenticated()); // 其他的所以接口都需要认证才可以访问
+      // @formatter:on
+
+    // 设置异常的EntryPoint的处理
+    http.exceptionHandling(exceptions -> exceptions
+        // 未登录
+        .authenticationEntryPoint(new MyAuthenticationEntryPoint())
+        // 权限不足
+        .accessDeniedHandler(new MyAccessDeniedHandler()));
+
+    // http.formLogin(Customizer.withDefaults());
+    // http.formLogin(form -> form.loginPage("/login").permitAll());
+
+    return http.build();
+  }
+
+  @Bean
+  public AuthenticationManager authenticationManager(
+      AuthenticationConfiguration authenticationConfiguration) throws Exception {
+    return authenticationConfiguration.getAuthenticationManager();
+  }
+}
+```
+
+- 添加上面的两个异常处理，分别是未登录和未授权
+
+```java
+package com.hezf.demo;
+
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.stereotype.Component;
+import java.io.IOException;
+
+@Component
+public class MyAuthenticationEntryPoint implements AuthenticationEntryPoint {
+
+  @Override
+  public void commence(HttpServletRequest request, HttpServletResponse response,
+      AuthenticationException authException) throws IOException, ServletException {
+    response.sendRedirect("login");
+  }
+}
+```
+
+```java
+package com.hezf.demo;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.stereotype.Component;
+import java.io.IOException;
+
+@Component
+public class MyAccessDeniedHandler implements AccessDeniedHandler {
+
+  private static ObjectMapper objectMapper = new ObjectMapper();
+
+  @Override
+  public void handle(HttpServletRequest request, HttpServletResponse response,
+      AccessDeniedException accessDeniedException) throws IOException, ServletException {
+
+    response.setContentType("application/json;charset=utf-8");
+
+    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+
+    response.setContentType("application/json;charset=utf-8");
+    objectMapper.writeValue(response.getWriter(), "没有对应的权限");
+  }
+}
+
+```
+
+- 添加请求登录接口，这里完成了登录信息的验证，后续 http 请求上下文的保存还有自动跳转之前请求的链接
+
+```java
+  @PostMapping("/login")
+  void login(HttpServletRequest request, HttpServletResponse response,
+      @RequestParam("username") String username, @RequestParam("password") String password)
+      throws IOException, ServletException {
+
+    UsernamePasswordAuthenticationToken token =
+        UsernamePasswordAuthenticationToken.unauthenticated(username, password);
+
+    // 通过前端发来的 username、password 进行认证，这里会用到CustomUserDetailsService.loadUserByUsername
+    Authentication authentication = authenticationManager.authenticate(token);
+    // 设置空的上下文
+    SecurityContext context = SecurityContextHolder.createEmptyContext();
+    // 设置认证信息
+    context.setAuthentication(authentication);
+
+    // 这句保证了随后的请求都会有这个上下文，通过回话保持，在前端清理 cookie 之后也就失效了
+    securityContextRepository.saveContext(context, request, response);
+
+    // 检查是否有之前请求的 URL，如果有就跳转到之前的请求 URL 上去
+    SavedRequest savedRequest = new HttpSessionRequestCache().getRequest(request, response);
+    if (savedRequest != null) {
+      String targetUrl = savedRequest.getRedirectUrl();
+      response.sendRedirect(targetUrl);
+    } else {
+      response.sendRedirect("/public");
+    }
+  }
+```
+
+运行项目，浏览器直接访问 `http://localhost:8080/user` 会自动跳转到自定义登录页面，输入 user 用户名和密码后，会自动跳转回刚才访问的 `http://localhost:8080/user`，这时候继续访问 `http://localhost:8080/admin` 会返回 `"没有对应的权限"`。到这里我们就完成了：
+
+1. 自定义用户名密码验证的页面和接口
+2. 未登录自动跳转到登录页面
+3. 登录后自动跳转到之前想访问的接口
+4. 权限验证
+
+session7
 
 ## JWT 登录
 
