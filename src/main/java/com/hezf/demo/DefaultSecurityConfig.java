@@ -29,6 +29,8 @@ public class DefaultSecurityConfig {
         // 权限不足
         .accessDeniedHandler(new MyAccessDeniedHandler()));
 
+    http.csrf(csrf -> csrf.disable());
+
     // http.formLogin(Customizer.withDefaults());
     // http.formLogin(form -> form.loginPage("/login").permitAll());
 
