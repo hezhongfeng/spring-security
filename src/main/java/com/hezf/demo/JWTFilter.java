@@ -13,7 +13,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import java.io.IOException;
 
-
 @Component
 public class JWTFilter extends OncePerRequestFilter {
 
@@ -34,7 +33,7 @@ public class JWTFilter extends OncePerRequestFilter {
         // 通过 jwt 获取认证信息
         Authentication authentication = JWTProvider.getAuthentication(jwt);
 
-        // 将认证信息存入 Security 上下文中，可以取出来使用
+        // 将认证信息存入 Security 上下文中，可以取出来使用，也代表着已认证
         SecurityContextHolder.getContext().setAuthentication(authentication);
       }
     } catch (Exception ex) {

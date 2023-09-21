@@ -6,7 +6,6 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -62,8 +61,6 @@ public class JWTProvider {
     Claims claims =
         Jwts.parserBuilder().setSigningKey(secretKey).build().parseClaimsJws(token).getBody();
     // 从jwt获取用户权限列
-    // 注意这里不需要从数据库查询，否则会造成性能浪费，只需要在封路成功颁发jwt的时候查询一次就可以了
-    // 关于这部分的讨论：https://stackoverflow.com/questions/51507978/is-it-more-efficient-to-store-the-permissions-of-the-user-in-an-jwt-claim-or-to
     String permissionString = (String) claims.get(AUTHORITIES_KEY);
 
     List<SimpleGrantedAuthority> authorities =
