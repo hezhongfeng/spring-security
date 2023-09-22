@@ -30,11 +30,10 @@ public class DefaultSecurityConfig {
         // 权限不足
         .accessDeniedHandler(new MyAccessDeniedHandler()));
 
+    // 关闭 csrf 保护
     http.csrf(csrf -> csrf.disable());
 
-    // http.formLogin(Customizer.withDefaults());
-    // http.formLogin(form -> form.loginPage("/login").permitAll());
-
+    // 在过滤器链中添加 JWTFilter
     http.addFilterBefore(new JWTFilter(), LogoutFilter.class);
 
     return http.build();
