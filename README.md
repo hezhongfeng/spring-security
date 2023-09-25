@@ -732,13 +732,13 @@ public class LoginController {
 
 ## 多个 SecurityFilterChain
 
-下面来看一个更加复杂的情况，如何在已经使用会话做认证的情况下，添加 API 接口管理？也就是说，需要同时支持两种认证：
+接下来来看一个更加复杂的情况，如何在已经使用会话做认证的情况下，添加 JWT 认证做 API 接口管理？也就是说，需要同时支持两种认证：
 
-1. 访问需要认证的页面，没有认证的情况下自动跳转到登录页面，登录成功后自动跳回刚才访问的页面（会话）
-2. 支持通过 API 接口进行登录和访问接口（JWT）
+1. 会话认证：访问需要认证的页面，没有认证的情况下自动跳转到登录页面，登录成功后自动跳回刚才访问的页面
+2. JWT 认证：支持通过 API 接口进行登录和访问接口
 
 答案是同时可以设置多个 `SecurityFilterChain`，然后根据访问不同的 URL 确定使用哪个 `SecurityFilterChain`，只有第一个匹配的 SecurityFilterChain 被调用，如下所示：
 
 ![multi-securityfilterchain](https://springdoc.cn/spring-security/_images/servlet/architecture/multi-securityfilterchain.png)
 
-如果请求的 URL 是 /api/messages/，它首先与 /api/\*\* 的 SecurityFilterChain0 模式匹配，所以只有 SecurityFilterChain0 被调用，尽管它也与 SecurityFilterChainn 匹配。
+如果请求的 URL 是 `/api/messages/`，它首先与 `/api/**` 的 SecurityFilterChain0 模式匹配，所以只有 SecurityFilterChain0 被调用，尽管它也与 SecurityFilterChainn 匹配。
