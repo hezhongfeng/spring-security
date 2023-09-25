@@ -7,6 +7,7 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.logout.LogoutFilter;
 
 @EnableWebSecurity
 @Configuration
@@ -29,8 +30,11 @@ public class DefaultSecurityConfig {
         // 权限不足
         .accessDeniedHandler(new MyAccessDeniedHandler()));
 
-    // http.formLogin(Customizer.withDefaults());
-    // http.formLogin(form -> form.loginPage("/login").permitAll());
+    // 关闭 csrf 保护
+    http.csrf(csrf -> csrf.disable());
+
+    // 在过滤器链中添加 JWTFilter
+    http.addFilterBefore(new JWTFilter(), LogoutFilter.class);
 
     return http.build();
   }

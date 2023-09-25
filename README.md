@@ -498,7 +498,239 @@ session7
 
 ## JWT 登录
 
-## JWT 和 多个 SecurityFilterChain
+上面我们完成了，自定义的接口，自动跳转等等。。。但是现在更普遍的是前后端分离的项目，这样更容易扩展应用场景。下面来实现登录后颁发 jwt，以及通过 jwt 来进行认证和权限的判断。
+
+- 引入所需的 jwt 库
+
+```yml
+// jwt相关
+implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
+runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
+runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
+```
+
+- 添加 jwt 的默认配置
+
+在 `src/main/resources` 下删除原来的 `application.properties`，并且创建文件 `src/main/resources/application.yml`，填入以下内容：
+
+```yml
+jwt:
+  # 60*60*1
+  expire: 3600
+  # secret: 秘钥(普通字符串)
+  secret: pa1R0cHM6hyGf8Hyb7D34LKJ8b4gldC91LzM2ODE4Njg
+  # 默认存放token的请求头
+  requestHeader: Authorization
+  # 默认token前缀
+  tokenPrefix: Bearer
+```
+
+- 添加颁发、解析、认证 jwt 等工具类
+
+新建 `src/main/java/com/hezf/demo/JWTProvider.java` 文件，这个类的作用是：
+
+1、生成 jwt（在登录的时候生成，根据 username 和对应的权限列表）
+2、检验 jwt 有效性和提取 jwt 中的认证信息（使用 jwt 访问接口的时候）
+
+```java
+@Component
+public class JWTProvider {
+  private static final Logger logger = LoggerFactory.getLogger(JWTProvider.class);
+
+  private static final String AUTHORITIES_KEY = "permissions";
+
+  private static SecretKey secretKey;
+
+  @Value("${jwt.secret}")
+  public void setJwtSecret(String secret) {
+    secretKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
+  }
+
+  private static int jwtExpirationInMs;
+
+  @Value("${jwt.expire}")
+  public void setJwtExpirationInMs(int expire) {
+    jwtExpirationInMs = expire;
+  }
+
+  // generate JWT token
+  public static String generateToken(Authentication authentication) {
+    long currentTimeMillis = System.currentTimeMillis();
+    Date expirationDate = new Date(currentTimeMillis + jwtExpirationInMs * 1000);
+
+    String scope = authentication.getAuthorities().stream().map(GrantedAuthority::getAuthority)
+        .collect(Collectors.joining(","));
+
+    Claims claims = Jwts.claims().setSubject(authentication.getName());
+    claims.put(AUTHORITIES_KEY, scope);
+    return Jwts.builder().setClaims(claims).setExpiration(expirationDate)
+        .signWith(secretKey, SignatureAlgorithm.HS256).compact();
+  }
+
+  public static Authentication getAuthentication(String token) {
+    Claims claims =
+        Jwts.parserBuilder().setSigningKey(secretKey).build().parseClaimsJws(token).getBody();
+    // 从jwt获取用户权限列
+    String permissionString = (String) claims.get(AUTHORITIES_KEY);
+
+    List<SimpleGrantedAuthority> authorities =
+        permissionString.isBlank() ? new ArrayList<SimpleGrantedAuthority>()
+            : Arrays.stream(permissionString.split(",")).map(SimpleGrantedAuthority::new)
+                .collect(Collectors.toList());
+
+    // 获取 username
+    String username = claims.getSubject();
+
+    return new UsernamePasswordAuthenticationToken(username, null, authorities);
+  }
+
+  // validate Jwt token
+  public static boolean validateToken(String token) {
+    try {
+      Jwts.parserBuilder().setSigningKey(secretKey).build().parse(token);
+      return true;
+    } catch (MalformedJwtException e) {
+      logger.error("Invalid JWT token: {}", e.getMessage());
+    } catch (ExpiredJwtException e) {
+      logger.error("JWT token is expired: {}", e.getMessage());
+    } catch (UnsupportedJwtException e) {
+      logger.error("JWT token is unsupported: {}", e.getMessage());
+    } catch (IllegalArgumentException e) {
+      logger.error("JWT claims string is empty: {}", e.getMessage());
+    }
+    return false;
+  }
+}
+
+```
+
+新建`src/main/java/com/hezf/demo/JWTFilter.java`文件，这个类的作用是：
+
+1、除了登录接口以外，其他接口在进入接口之前，都需要经过 JWTFilter 的处理
+2、验证 jwt 的合法性和有效期等
+3、提取 jwt 中的 username 和 权限，生成 Authentication 存到 security 上下文
+4、security 上下文中有了 Authentication ，那就代表着已认证，后续也可以在接口中使用 Authentication 中的信息
+
+```java
+
+@Component
+public class JWTFilter extends OncePerRequestFilter {
+
+  private static final Logger LOGGER = LoggerFactory.getLogger(JWTFilter.class);
+
+  @Override
+  protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+      FilterChain filterChain) throws ServletException, IOException {
+
+    // 这部分出错后，直接返回401，不再走后面的filter
+    try {
+      // 从请求头中获取jwt
+      String jwt = getJwtFromRequest(request);
+
+      // 校验 jwt 是否有效，包含了过期的验证
+      if (StringUtils.hasText(jwt) && JWTProvider.validateToken(jwt)) {
+
+        // 通过 jwt 获取认证信息
+        Authentication authentication = JWTProvider.getAuthentication(jwt);
+
+        // 将认证信息存入 Security 上下文中，可以取出来使用，也代表着已认证
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+      }
+    } catch (Exception ex) {
+      LOGGER.error("Could not set user authentication in security context", ex);
+    }
+
+    filterChain.doFilter(request, response);
+  }
+
+  private String getJwtFromRequest(HttpServletRequest request) {
+    String bearerToken = request.getHeader("Authorization");
+
+    if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
+      return bearerToken.substring(7, bearerToken.length());
+    }
+    return null;
+  }
+}
+
+```
+
+- 修改 springsecurity 配置，因为使用了 jwt 进行认证，所以不需要 csrf 保护了
+
+```java
+  // 关闭 csrf 保护
+  http.csrf(csrf -> csrf.disable());
+
+  // 在过滤器链中添加 JWTFilter
+  http.addFilterBefore(new JWTFilter(), LogoutFilter.class);
+```
+
+- 重写登录接口，像上次一样，提取 username 和 password 进行登录认证，认证成功以后返回 jwt，失败的话返回错误信息
+
+```java
+class LoginRequest {
+
+  private String username;
+  private String password;
+
+
+  public String getUsername() {
+    return this.username;
+  }
+
+  public void setUsername(String username) {
+    this.username = username;
+  }
+
+  public String getPassword() {
+    return this.password;
+  }
+
+  public void setPassword(String password) {
+    this.password = password;
+  }
+}
+
+@RestController
+public class LoginController {
+
+  @Autowired
+  private AuthenticationManager authenticationManager;
+
+  @PostMapping("/login")
+  public Map<String, Object> login(@RequestBody LoginRequest login) {
+
+    Map<String, Object> map = new HashMap<>();
+
+    try {
+      UsernamePasswordAuthenticationToken token = UsernamePasswordAuthenticationToken
+          .unauthenticated(login.getUsername(), login.getPassword());
+
+      Authentication authentication = authenticationManager.authenticate(token);
+
+      String jwt = JWTProvider.generateToken(authentication);
+
+      map.put("jwt", jwt);
+    } catch (BadCredentialsException ex) {
+      map.put("error", ex.getMessage());
+    }
+    return map;
+  }
+}
+
+```
+
+- 测试接口
+
+使用 postman 等测试工具，发起 post 请求，格式为 json
+
+1. 当发送的用户名密码错误的时候，返回 `{"error":"用户名或密码错误"}`
+2. 正确的话返回 `{"jwt": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyIiwicGVybWlzc2lvbnMiOiJVU0VSIiwiZXhwIjoxNjk1MzUxODAyfQ._cNekfYovmnjWKBaKVCiErzu76q-Aj3gZhUsDiITzAA"}`
+3. 在 header 中添加 Authorization，并填写值 `Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyIiwicGVybWlzc2lvbnMiOiJVU0VSIiwiZXhwIjoxNjk1MzUxODAyfQ._cNekfYovmnjWKBaKVCiErzu76q-Aj3gZhUsDiITzAA`，后面的一长串就是上一步得到的 jwt，
+4. 发起 GET 请求 `http://127.0.0.1:8080/user`，这时候得到 `Hello User!`
+5. 继续发起 GET 请求 `http://127.0.0.1:8080/user`，这时候得到 `"没有对应的权限"`
+
+## 多个 SecurityFilterChain
 
 添加完后，重启项目，就可以不登录直接访问之前的接口了。
 

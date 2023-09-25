@@ -20,9 +20,7 @@ public class MyAccessDeniedHandler implements AccessDeniedHandler {
 
     response.setContentType("application/json;charset=utf-8");
 
-    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-
-    response.setContentType("application/json;charset=utf-8");
+    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
     objectMapper.writeValue(response.getWriter(), "没有对应的权限");
   }
 }
