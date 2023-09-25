@@ -732,14 +732,13 @@ public class LoginController {
 
 ## 多个 SecurityFilterChain
 
-添加完后，重启项目，就可以不登录直接访问之前的接口了。
+下面来看一个更加复杂的情况，如何在已经使用会话做认证的情况下，添加 API 接口管理？也就是说，需要同时支持两种认证：
 
-Spring Security 基于过滤器链的概念，可以轻松地集成到任何基于 Spring 的应用程序中。即通过一层层的 Filters 来对 web 请求做处理。
+1. 访问需要认证的页面，没有认证的情况下自动跳转到登录页面，登录成功后自动跳回刚才访问的页面（会话）
+2. 支持通过 API 接口进行登录和访问接口（JWT）
 
-![filterchainproxy](https://springdoc.cn/spring-security/_images/servlet/architecture/filterchainproxy.png)
-
-接下来说一下 SecurityFilterChain ，SecurityFilterChain 被 FilterChainProxy 用来确定当前请求应该调用哪些 Spring Security Filter 实例。也就是说，Spring Security 的安全管理是一层一层的
-
-同时可以设置多个 SecurityFilterChain，像下面这样：
+答案是同时可以设置多个 `SecurityFilterChain`，然后根据访问不同的 URL 确定使用哪个 `SecurityFilterChain`，只有第一个匹配的 SecurityFilterChain 被调用，如下所示：
 
 ![multi-securityfilterchain](https://springdoc.cn/spring-security/_images/servlet/architecture/multi-securityfilterchain.png)
+
+如果请求的 URL 是 /api/messages/，它首先与 /api/\*\* 的 SecurityFilterChain0 模式匹配，所以只有 SecurityFilterChain0 被调用，尽管它也与 SecurityFilterChainn 匹配。
