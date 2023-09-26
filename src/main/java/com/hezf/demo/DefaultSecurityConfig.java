@@ -20,12 +20,12 @@ import com.hezf.demo.jwt.JWTAuthenticationEntryPoint;
 public class DefaultSecurityConfig {
 
   @Bean
-  @Order(0) // 最高优先级
+  @Order(0) // 最高优先级，这里处理的都是以 /api/** 开头的接口，使用 jwt 做认证
   public SecurityFilterChain jwtFilterChain(HttpSecurity http) throws Exception {
 
     // @formatter:off
     http.securityMatcher("/api/**").authorizeHttpRequests(authorize -> authorize
-      .requestMatchers("/public","/api/login").permitAll() // /public 接口可以公开访问
+      .requestMatchers("/api/login").permitAll() // /public 接口可以公开访问
       .requestMatchers("/api/admin").hasAuthority("ADMIN") // /admin 接口需要 ADMIN 权限
       .anyRequest().authenticated()); // 其他的所以接口都需要认证才可以访问
       // @formatter:on
@@ -63,9 +63,6 @@ public class DefaultSecurityConfig {
         .authenticationEntryPoint(new SessionAuthenticationEntryPoint())
         // 权限不足
         .accessDeniedHandler(new SessionAccessDeniedHandler()));
-
-    // http.formLogin(Customizer.withDefaults());
-    // http.formLogin(form -> form.loginPage("/login").permitAll());
 
     return http.build();
   }
