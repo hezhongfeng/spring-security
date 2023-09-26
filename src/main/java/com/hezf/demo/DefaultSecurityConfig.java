@@ -2,19 +2,53 @@ package com.hezf.demo;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.logout.LogoutFilter;
+import com.hezf.demo.jwt.JWTFilter;
+import com.hezf.demo.session.SessionAccessDeniedHandler;
+import com.hezf.demo.session.SessionAuthenticationEntryPoint;
+import com.hezf.demo.jwt.JWTAccessDeniedHandler;
+import com.hezf.demo.jwt.JWTAuthenticationEntryPoint;
 
 @EnableWebSecurity
 @Configuration
 public class DefaultSecurityConfig {
 
   @Bean
-  public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+  @Order(0) // 最高优先级，这里处理的都是以 /api/** 开头的接口，使用 jwt 做认证
+  public SecurityFilterChain jwtFilterChain(HttpSecurity http) throws Exception {
+
+    // @formatter:off
+    http.securityMatcher("/api/**").authorizeHttpRequests(authorize -> authorize
+      .requestMatchers("/api/login").permitAll() // /public 接口可以公开访问
+      .requestMatchers("/api/admin").hasAuthority("ADMIN") // /admin 接口需要 ADMIN 权限
+      .anyRequest().authenticated()); // 其他的所以接口都需要认证才可以访问
+      // @formatter:on
+
+    // 设置异常的EntryPoint的处理
+    http.exceptionHandling(exceptions -> exceptions
+        // 未登录
+        .authenticationEntryPoint(new JWTAuthenticationEntryPoint())
+        // 权限不足
+        .accessDeniedHandler(new JWTAccessDeniedHandler()));
+
+    // 关闭 csrf 保护
+    http.csrf(csrf -> csrf.disable());
+
+    // 在过滤器链中添加 JWTFilter
+    http.addFilterBefore(new JWTFilter(), LogoutFilter.class);
+
+    return http.build();
+  }
+
+  @Bean
+  @Order(1) // 次高优先级，处理会话认证
+  public SecurityFilterChain sessionFilterChain(HttpSecurity http) throws Exception {
 
     // @formatter:off
     http.authorizeHttpRequests(authorize -> authorize
@@ -26,15 +60,9 @@ public class DefaultSecurityConfig {
     // 设置异常的EntryPoint的处理
     http.exceptionHandling(exceptions -> exceptions
         // 未登录
-        .authenticationEntryPoint(new MyAuthenticationEntryPoint())
+        .authenticationEntryPoint(new SessionAuthenticationEntryPoint())
         // 权限不足
-        .accessDeniedHandler(new MyAccessDeniedHandler()));
-
-    // 关闭 csrf 保护
-    http.csrf(csrf -> csrf.disable());
-
-    // 在过滤器链中添加 JWTFilter
-    http.addFilterBefore(new JWTFilter(), LogoutFilter.class);
+        .accessDeniedHandler(new SessionAccessDeniedHandler()));
 
     return http.build();
   }

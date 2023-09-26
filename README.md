@@ -732,14 +732,219 @@ public class LoginController {
 
 ## 多个 SecurityFilterChain
 
-添加完后，重启项目，就可以不登录直接访问之前的接口了。
+接下来来看一个更加复杂的情况，如何在已经使用会话做认证的情况下，添加 JWT 认证做 API 接口管理？也就是说，需要同时支持两种认证：
 
-Spring Security 基于过滤器链的概念，可以轻松地集成到任何基于 Spring 的应用程序中。即通过一层层的 Filters 来对 web 请求做处理。
+1. 会话认证：访问需要认证的页面，没有认证的情况下自动跳转到登录页面，登录成功后自动跳回刚才访问的页面
+2. JWT 认证：支持通过 API 接口进行登录和访问 API 接口
 
-![filterchainproxy](https://springdoc.cn/spring-security/_images/servlet/architecture/filterchainproxy.png)
-
-接下来说一下 SecurityFilterChain ，SecurityFilterChain 被 FilterChainProxy 用来确定当前请求应该调用哪些 Spring Security Filter 实例。也就是说，Spring Security 的安全管理是一层一层的
-
-同时可以设置多个 SecurityFilterChain，像下面这样：
+答案是同时可以设置多个 `SecurityFilterChain`，然后根据访问不同的 URL 确定使用哪个 `SecurityFilterChain`，只有第一个匹配的 SecurityFilterChain 被调用，如下所示：
 
 ![multi-securityfilterchain](https://springdoc.cn/spring-security/_images/servlet/architecture/multi-securityfilterchain.png)
+
+如果请求的 URL 是 `/api/user/`，它首先与 `/api/**` 的 SecurityFilterChain0 模式匹配，所以只有 SecurityFilterChain0 被调用，尽管它也与 SecurityFilterChain1 匹配,但是只调用第一个匹配的。
+
+- 首先准备好两套登录接口
+
+```java
+// src/main/java/com/hezf/demo/jwt/JWTLoginController.java
+class LoginRequest {
+
+  private String username;
+  private String password;
+
+
+  public String getUsername() {
+    return this.username;
+  }
+
+  public void setUsername(String username) {
+    this.username = username;
+  }
+
+  public String getPassword() {
+    return this.password;
+  }
+
+  public void setPassword(String password) {
+    this.password = password;
+  }
+}
+
+
+@RestController
+@RequestMapping("/api")
+public class JWTLoginController {
+
+  @Autowired
+  private AuthenticationManager authenticationManager;
+
+  @PostMapping("/login")
+  public Map<String, Object> login(@RequestBody LoginRequest login) {
+
+    Map<String, Object> map = new HashMap<>();
+
+    try {
+      UsernamePasswordAuthenticationToken token = UsernamePasswordAuthenticationToken
+          .unauthenticated(login.getUsername(), login.getPassword());
+
+      Authentication authentication = authenticationManager.authenticate(token);
+
+      String jwt = JWTProvider.generateToken(authentication);
+
+      map.put("jwt", jwt);
+    } catch (BadCredentialsException ex) {
+      map.put("error", ex.getMessage());
+    }
+    return map;
+  }
+}
+```
+
+```java
+// src/main/java/com/hezf/demo/session/SessionLoginController.java
+@Controller
+public class SessionLoginController {
+
+  @Autowired
+  private AuthenticationManager authenticationManager;
+
+  private SecurityContextRepository securityContextRepository =
+      new HttpSessionSecurityContextRepository();
+
+  @GetMapping("/login")
+  String login() {
+    return "login";
+  }
+
+  @PostMapping("/login")
+  void login(HttpServletRequest request, HttpServletResponse response,
+      @RequestParam("username") String username, @RequestParam("password") String password)
+      throws IOException, ServletException {
+
+    UsernamePasswordAuthenticationToken token =
+        UsernamePasswordAuthenticationToken.unauthenticated(username, password);
+
+    // 通过前端发来的 username、password 进行认证，这里会用到CustomUserDetailsService.loadUserByUsername
+    Authentication authentication = authenticationManager.authenticate(token);
+    // 设置空的上下文
+    SecurityContext context = SecurityContextHolder.createEmptyContext();
+    // 设置认证信息
+    context.setAuthentication(authentication);
+
+    // 这句保证了随后的请求都会有这个上下文，通过回话保持，在前端清理 cookie 之后也就失效了
+    securityContextRepository.saveContext(context, request, response);
+
+    // 检查是否有之前请求的 URL，如果有就跳转到之前的请求 URL 上去
+    SavedRequest savedRequest = new HttpSessionRequestCache().getRequest(request, response);
+    if (savedRequest != null) {
+      String targetUrl = savedRequest.getRedirectUrl();
+      response.sendRedirect(targetUrl);
+    } else {
+      response.sendRedirect("/public");
+    }
+  }
+}
+
+```
+
+- 然后准备好两套未认证和权限错误的处理，这部分代码不贴了，可以自行查找：
+
+```java
+
+// JWT
+src/main/java/com/hezf/demo/jwt/JWTAuthenticationEntryPoint.java
+src/main/java/com/hezf/demo/jwt/JWTAccessDeniedHandler.java
+
+// session
+src/main/java/com/hezf/demo/session/SessionAuthenticationEntryPoint.java
+src/main/java/com/hezf/demo/session/SessionAccessDeniedHandler.java
+```
+
+- 继续准备好两套 user 和 admin 的接口
+
+```java
+src/main/java/com/hezf/demo/jwt/JWTController.java
+src/main/java/com/hezf/demo/session/SessionController.java
+```
+
+- JWT 所需的 `JWTProvider` 和 `JWTFilter` 内容不变
+- 最后是配置 SecurityFilterChain
+
+```java
+@EnableWebSecurity
+@Configuration
+public class DefaultSecurityConfig {
+
+  @Bean
+  @Order(0) // 最高优先级，这里处理的都是以 /api/** 开头的接口，使用 jwt 做认证
+  public SecurityFilterChain jwtFilterChain(HttpSecurity http) throws Exception {
+
+    // @formatter:off
+    http.securityMatcher("/api/**").authorizeHttpRequests(authorize -> authorize
+      .requestMatchers("/api/login").permitAll() // /public 接口可以公开访问
+      .requestMatchers("/api/admin").hasAuthority("ADMIN") // /admin 接口需要 ADMIN 权限
+      .anyRequest().authenticated()); // 其他的所以接口都需要认证才可以访问
+      // @formatter:on
+
+    // 设置异常的EntryPoint的处理
+    http.exceptionHandling(exceptions -> exceptions
+        // 未登录
+        .authenticationEntryPoint(new JWTAuthenticationEntryPoint())
+        // 权限不足
+        .accessDeniedHandler(new JWTAccessDeniedHandler()));
+
+    // 关闭 csrf 保护
+    http.csrf(csrf -> csrf.disable());
+
+    // 在过滤器链中添加 JWTFilter
+    http.addFilterBefore(new JWTFilter(), LogoutFilter.class);
+
+    return http.build();
+  }
+
+  @Bean
+  @Order(1) // 次高优先级，处理会话认证
+  public SecurityFilterChain sessionFilterChain(HttpSecurity http) throws Exception {
+
+    // @formatter:off
+    http.authorizeHttpRequests(authorize -> authorize
+      .requestMatchers("/public","/login").permitAll() // /public 接口可以公开访问
+      .requestMatchers("/admin").hasAuthority("ADMIN") // /admin 接口需要 ADMIN 权限
+      .anyRequest().authenticated()); // 其他的所以接口都需要认证才可以访问
+      // @formatter:on
+
+    // 设置异常的EntryPoint的处理
+    http.exceptionHandling(exceptions -> exceptions
+        // 未登录
+        .authenticationEntryPoint(new SessionAuthenticationEntryPoint())
+        // 权限不足
+        .accessDeniedHandler(new SessionAccessDeniedHandler()));
+
+    return http.build();
+  }
+
+  @Bean
+  public AuthenticationManager authenticationManager(
+      AuthenticationConfiguration authenticationConfiguration) throws Exception {
+    return authenticationConfiguration.getAuthenticationManager();
+  }
+}
+```
+
+最后的结构是这样的，也可以查看源码：
+
+![结构](https://gitee.com/hezf/assets/raw/master/202309261023461.png)
+
+最后我们进行测试，首先是会话认证：
+
+1. 启动项目后，在浏览器访问 `http://localhost:8080/user` ,会自动跳转到 `http://localhost:8080/login`
+2. 输入用户名、密码后，会自动跳回 `http://localhost:8080/user`，并显示 `Hello User!`
+3. 最后，将浏览器 访问地址改为 `http://localhost:8080/admin` ,会显示 `没有对应的权限` ，会话认证基本验证完成
+
+接下来测试 JWT 认证：
+
+1. 使用调试工具 POST `http://localhost:8080/api/login`，body 里面填写 `{"username": "user","password": "password"}`
+2. 登录成功后，获取返回值，复制 jwt 的值，在 Header 中添加 `Authorization: Bearer jwt的值`
+3. 访问 GET `http://localhost:8080/api/user`，可以正常访问接口，然后携带相同的 Header 继续访问 `http://localhost:8080/api/admin`, 返回 `没有对应的权限`
+
+以上可以保证，两个 SecurityFilterChain 都在运行，并且

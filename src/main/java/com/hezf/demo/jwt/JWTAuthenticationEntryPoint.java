@@ -1,4 +1,4 @@
-package com.hezf.demo;
+package com.hezf.demo.jwt;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -10,7 +10,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 
 @Component
-public class MyAuthenticationEntryPoint implements AuthenticationEntryPoint {
+public class JWTAuthenticationEntryPoint implements AuthenticationEntryPoint {
   private static ObjectMapper objectMapper = new ObjectMapper();
 
   @Override

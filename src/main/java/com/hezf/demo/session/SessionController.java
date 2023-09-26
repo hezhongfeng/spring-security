@@ -1,13 +1,14 @@
-package com.hezf.demo;
+package com.hezf.demo.session;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-public class IndexController {
+public class SessionController {
 
   // 公开接口，可以随便访问
   @RequestMapping("/public")
@@ -26,8 +27,11 @@ public class IndexController {
     // 检查是否已认证
     System.out.println(authentication.isAuthenticated());
 
-    System.out.println(authentication.getName());
-    System.out.println(authentication.getAuthorities());
+    // 检查用户详情
+    UserDetails userDetail = (UserDetails) authentication.getPrincipal();
+    System.out.println(userDetail.getUsername());
+    System.out.println(userDetail.getPassword()); // 这里是没有密码的
+    System.out.println(userDetail.getAuthorities());
 
     return "Hello User!";
   }

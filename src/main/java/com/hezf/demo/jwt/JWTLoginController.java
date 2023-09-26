@@ -1,4 +1,4 @@
-package com.hezf.demo;
+package com.hezf.demo.jwt;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -9,6 +9,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 class LoginRequest {
@@ -34,8 +35,10 @@ class LoginRequest {
   }
 }
 
+
 @RestController
-public class LoginController {
+@RequestMapping("/api")
+public class JWTLoginController {
 
   @Autowired
   private AuthenticationManager authenticationManager;
