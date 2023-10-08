@@ -3,7 +3,3 @@ jwt:
   expire: 3600
   # secret: 秘钥(普通字符串)
   secret: pa1R0cHM6hyGf8Hyb7D34LKJ8b4gldC91LzM2ODE4Njg
-  # 默认存放token的请求头
-  requestHeader: Authorization
-  # 默认token前缀
-  tokenPrefix: Bearer

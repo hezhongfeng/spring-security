@@ -1,26 +1,24 @@
 # 简介
 
-Spring Security 是一个 Java 框架，用于保护应用程序的安全性。它提供了一套全面的安全解决方案，包括身份验证、授权、防止攻击等功能。Spring Security 基于过滤器链的概念，可以轻松地集成到任何基于 Spring 的应用程序中。它支持多种身份验证选项和授权策略，开发人员可以根据需要选择适合的方式。此外，Spring Security 还提供了一些附加功能，如集成第三方身份验证提供商和单点登录，以及会话管理和密码编码等。总之，Spring Security 是一个强大且易于使用的框架，可以帮助开发人员提高应用程序的安全性和可靠性。
-
-Spring Security 提供了对身份认证、授权和针对常见漏洞的保护的全面支持。
+Spring Security 提供了对身份认证、授权和针对常见漏洞的保护的全面支持，可以轻松地集成到任何基于 Spring 的应用程序中。
 
 详细点说就是提供了：
 
-认证（Authentication）：可以理解为登录（包括用户名密码、手机号验证码、指纹识别、等等）
+认证（Authentication）：可以理解为登录，验证访问者的身份。包括用户名密码认证、手机号短信验证码认证、指纹识别认证、面容识别认证等等
 
-授权（Authorization）：对资源的保护，只有拿到该资源的授权才可以访问
+授权（Authorization）：授权发生在系统完成身份认证之后，最终会授予你访问资源（如信息，文件，数据库等等）的权限，授权决定了你访问系统的能力以及达到的程度，比如只有拿到了操作用户的授权，才可以管理用户
 
 漏洞保护：跨域、csrf 等防护
 
-## 项目创建
+## 项目初始化
 
 当前的 Spring Boot 版本是 3.1.2，Spring Security 的版本是 6.1.2
 
-当我们使用 <https://start.spring.io/> 添加 `Spring Web` 创建完成项目
+我们使用 [Spring Initializr](https://start.spring.io/) 添加 `Spring Web` 完成项目的创建
 
 ![start](https://gitee.com/hezf/assets/raw/master/202308231407299.png)
 
-创建项目后，新建一个 index 接口，这样就可以在根目录访问接口了
+创建项目并下载打开后，新建一个 index 接口，这样就可以启动服务，访问接口了
 
 在`src/main/java/com/hezf/demo/DemoApplication.java`同级别目录新建文件`IndexController.java`后，写下第一个接口：
 
@@ -43,23 +41,23 @@ public class IndexController {
 
 启动项目，访问本地 8080 接口：`http://localhost:8080/`，成功访问到接口数据后，继续下面的操作
 
-## 引入
+## 引入 Spring Security
 
-在 build.gradle 添加 implementation 'org.springframework.boot:spring-boot-starter-security' 添加完成后，需要 gradle 下载引入 security
+在 build.gradle 添加 `implementation 'org.springframework.boot:spring-boot-starter-security'` ，完成后需要 gradle 下载引入 security
 
-下载完成后，重新启动项目，继续访问 `http://localhost:8080/`
+下载后，重新启动项目，继续访问 `http://localhost:8080/`
 
 这时候发现跳转到了一个登录的页面，这就表明 security 已经起作用了，不让我们直接访问接口了，接口被保护了起来
 
 我们查看调试信息，会发现一条类似的信息`Using generated security password: 9d53cf27-6c2b-4468-809a-247eb5d669da`，把这个密码和用户名`user`填上就可以继续访问刚才的接口
 
-在密码出现的下方有一条：This generated password is for development use only. Your security configuration must be updated before running your application in production.
+在密码出现的下方有一条：`This generated password is for development use only. Your security configuration must be updated before running your application in production.`
 
-这是告诉我们，这个用户和密码只是在开发阶段调试使用，生产环境不要这么使用，接下来我们自定义用户和密码。session1
+这是告诉我们，这个用户和密码只是在开发阶段调试使用，生产环境不要这么使用，接下来我们自定义用户和密码。
 
 ## 内存认证
 
-在`src/main/java/com/hezf/demo/DemoApplication.java`同级别目录新建文件`DefaultSecurityConfig.java`，写下：
+在`src/main/java/com/hezf/demo/DemoApplication.java`同级别目录新建文件`DefaultSecurityConfig.java`：
 
 ```java
 package com.hezf.demo;
@@ -87,13 +85,13 @@ public class DefaultSecurityConfig {
 }
 ```
 
-这时候重启项目，发现控制台没有`Using generated security password`等信息出现了，可以使用 `user` 和 `password` 进行登录，登录后可以访问 IndexController。
+这时候重启项目，发现控制台没有`Using generated security password`等信息出现了，可以使用 `user` 和 `password` 进行登录，登录后可以访问 IndexController
 
-这种内存用户可以快速的验证登录和一些权限控制，在项目中添加了 `Spring Security` 之后，默认对所有接口都开启了访问控制，只有已认证用户（已登录）才可以访问，所以才需要登录,接下来我们尝试进行对 security 进行配置。 session2
+这种内存用户可以快速的验证登录和一些权限控制，在项目中添加了 `Spring Security` 之后，默认对所有接口都开启了访问控制，只有已认证用户（已登录）才可以访问，接下来我们尝试进行对 security 进行配置
 
 ## SecurityConfig
 
-在项目中添加了 `Spring Security`，必须登录才能访问接口，那么怎么把这个限制关掉，这时候可以使用 SecurityFilterChain，在 DefaultSecurityConfig 添加 SecurityFilterChain
+在项目中添加了 `Spring Security`后，必须登录才能访问接口，那么怎么把这个限制关掉？这时候可以使用 SecurityFilterChain，在 DefaultSecurityConfig 添加 SecurityFilterChain
 
 ```java
 @EnableWebSecurity
@@ -118,7 +116,7 @@ public class DefaultSecurityConfig {
 
 ```
 
-当添加上面的配置重启后，发现接口可以随便访问了，这是因为默认情况下，Spring Security 接口保护、表单登录被启用。然而，只要提供任何 SecurityFilterChain 配置，就必须明确接口保护和基于表单的登录。为了实现之前的接口保护和表单登录，需要如下配置：
+当添加上面的配置重启后，发现接口可以随便访问了，这是因为默认情况下，Spring Security 接口保护、表单登录被启用。然而，只要提供任何 SecurityFilterChain 配置，就必须明确接口保护和基于表单的登录。为了实现之前的接口保护和表单登录，需要添加如下配置：
 
 ```java
   @Bean
@@ -183,7 +181,7 @@ public class CustomUserDetailsService implements UserDetailsService {
 
 ```
 
-DefaultSecurityConfig 修改一下：
+`DefaultSecurityConfig` 修改一下：
 
 ```java
 @EnableWebSecurity
@@ -202,7 +200,7 @@ public class DefaultSecurityConfig {
 }
 ```
 
-然后就可以用 user 和 user1 完成登录了 session3
+然后就可以用 `user` 和 `user1` 完成登录了
 
 ## API 接口限制
 
@@ -234,7 +232,7 @@ public class IndexController {
 }
 ```
 
-接下来配置 SecurityFilterChain：
+接下来配置 `SecurityFilterChain`：
 
 ```java
   @Bean
@@ -270,11 +268,11 @@ public class IndexController {
   }
 ```
 
-重启项目访问 `http://localhost:8080/public` 成功访问。接下来访问 `http://localhost:8080/user` 会要求登录，我们输入 user 的用户名和密码，成功访问。接下来访问 `http://localhost:8080/admin` 发现返回了 403 状态吗，告诉我们权限不正确，这时候清空下 cookie 重新使用 admin 登录即可访问。到此，我们实现了最小型的接口权限控制。session4
+重启项目访问 `http://localhost:8080/public` 成功访问。接下来访问 `http://localhost:8080/user` 会要求登录，我们输入 `user` 的用户名和密码，成功访问。接下来访问 `http://localhost:8080/admin` 发现返回了 `403` 状态吗，告诉我们权限不正确，这时候清空下 cookie 重新使用 `admin` 登录即可访问。到此，我们实现了最小型的接口权限控制
 
 ## 认证持久化
 
-当用户第一次请求受保护的资源时，会被重定向到登录页面，这时候用户被设置一个新的 Session ID，存在 Cookies 中的 JSESSIONID。随后的每次请求都会携带这个 cookie，用于在接下来的会话中验证用户的身份。使用 SecurityContext ，可以获取当前用户的认证信息，他们之间的关系可以看图：
+当用户第一次请求受保护的资源时，会被重定向到登录页面，这时候用户被设置一个新的 `Session ID`，存在 `Cookies` 中的 `JSESSIONID`。随后的每次请求都会携带这个 `Cookie`，用于在接下来的会话中认证用户的身份。使用 `SecurityContext` ，可以获取当前用户的认证信息，他们之间的关系可以看图：
 
 ![securitycontextholder](https://springdoc.cn/spring-security/_images/servlet/authentication/architecture/securitycontextholder.png)
 
@@ -300,7 +298,7 @@ public class IndexController {
   }
 ```
 
-上面的代码是在已认证的情况下，认证过程是 SpringSecurity 提供的登录页面和接口，下一步自己实现登录过程 session 5
+上面的代码是在已认证的情况下，认证过程是 `SpringSecurity` 提供的登录页面和接口，下一步自己实现登录过程
 
 ## 自定义登录页面
 
@@ -330,7 +328,7 @@ public class IndexController {
 </html>
 ```
 
-- 在配置文件 DefaultSecurityConfig 修改：
+- 再配置文件 `DefaultSecurityConfig`：
 
 ```java
  http.formLogin(form -> form.loginPage("/login").permitAll());
@@ -355,13 +353,13 @@ public class LoginController {
 
 ```
 
-这时候重启项目，继续访问`/user`，会跳转到我们自定义的登录页面,其他和以前的一样。前面的配置修改是告诉 `spring security` 我们有自己的登录页面请求接口，`LoginController` 是为了返回这个自定义登录页面,上面添加的`thymeleaf`是为了解析登录页面 `login.html` session6
+这时候重启项目，继续访问 `/user` ，会跳转到我们自定义的登录页面，其他和以前的一样。前面的配置修改是告诉 `spring security` 我们有自己的登录页面请求接口，`LoginController` 是为了返回这个自定义登录页面，上面添加的 `thymeleaf` 是为了解析登录页面 `login.html`
 
 ## 自定义登录接口
 
-前面我们自定义了登录页面，如果想自己定义登录接口，就需要把默认的 `formLogin` 关掉，否则即使声明了 `post login`的接口也没用，登录请求会被`formLogin` 拦截。所以我们直接注释掉 `formLogin` 相关就可以了，这里并不需要将 `formLogin` disabled 什么的。有了默认的 `SecurityFilterChain` 后，默认`formLogin`是关掉的。
+前面我们自定义了登录页面，如果想自己定义登录接口，就需要把默认的 `formLogin` 关掉，否则即使声明了 `POST` 方法的 `login` 接口也没用，登录请求会被`formLogin` 拦截。所以我们直接注释掉 `formLogin` 相关就可以了，这里并不需要将 `formLogin` disabled 什么的。有了默认的 `SecurityFilterChain` 后，默认 `formLogin` 就是关掉的
 
-- 修改 DefaultSecurityConfig，这里需要注意，需要把 login 接口开放出来，这里新增了两个异常处理，因为我想实现未登录自动跳转到登录页面
+- 修改 `DefaultSecurityConfig`，这里需要注意，需要把 `login` 接口开放出来，这里新增了两个异常处理，因为我想实现未登录自动跳转到登录页面
 
 ```java
 @EnableWebSecurity
@@ -399,7 +397,7 @@ public class DefaultSecurityConfig {
 }
 ```
 
-- 添加上面的两个异常处理，分别是未登录和未授权
+- 添加上面的两个异常处理 `MyAuthenticationEntryPoint` 和 `MyAccessDeniedHandler`，分别是未登录和未授权
 
 ```java
 package com.hezf.demo;
@@ -455,7 +453,7 @@ public class MyAccessDeniedHandler implements AccessDeniedHandler {
 
 ```
 
-- 添加请求登录接口，这里完成了登录信息的验证，后续 http 请求上下文的保存还有自动跳转之前请求的链接
+- 添加请求登录接口，这里完成了登录信息的验证，后续 `http` 请求上下文的保存还有自动跳转之前请求的链接
 
 ```java
   @PostMapping("/login")
@@ -487,20 +485,18 @@ public class MyAccessDeniedHandler implements AccessDeniedHandler {
   }
 ```
 
-运行项目，浏览器直接访问 `http://localhost:8080/user` 会自动跳转到自定义登录页面，输入 user 用户名和密码后，会自动跳转回刚才访问的 `http://localhost:8080/user`，这时候继续访问 `http://localhost:8080/admin` 会返回 `"没有对应的权限"`。到这里我们就完成了：
+运行项目，浏览器直接访问 `http://localhost:8080/user` 会自动跳转到自定义登录页面，输入 `user` 用户名和密码后，会自动跳转回刚才访问的 `http://localhost:8080/user`，这时候继续访问 `http://localhost:8080/admin` 会返回 `"没有对应的权限"`。到这里我们就完成了：
 
 1. 自定义用户名密码验证的页面和接口
 2. 未登录自动跳转到登录页面
 3. 登录后自动跳转到之前想访问的接口
 4. 权限验证
 
-session7
-
 ## JWT 登录
 
-上面我们完成了，自定义的接口，自动跳转等等。。。但是现在更普遍的是前后端分离的项目，这样更容易扩展应用场景。下面来实现登录后颁发 jwt，以及通过 jwt 来进行认证和权限的判断。
+上面我们完成了，自定义的接口，自动跳转等等。。。但是现在更普遍的是前后端分离的项目，这样更容易扩展应用场景。下面来实现登录后颁发 `jwt`，以及通过 `jwt` 来进行认证和权限的判断。
 
-- 引入所需的 jwt 库
+- 引入所需的 `jwt` 库
 
 ```yml
 // jwt相关
@@ -509,7 +505,7 @@ runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
 runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
 ```
 
-- 添加 jwt 的默认配置
+- 添加 `jwt` 的默认配置
 
 在 `src/main/resources` 下删除原来的 `application.properties`，并且创建文件 `src/main/resources/application.yml`，填入以下内容：
 
@@ -519,18 +515,14 @@ jwt:
   expire: 3600
   # secret: 秘钥(普通字符串)
   secret: pa1R0cHM6hyGf8Hyb7D34LKJ8b4gldC91LzM2ODE4Njg
-  # 默认存放token的请求头
-  requestHeader: Authorization
-  # 默认token前缀
-  tokenPrefix: Bearer
 ```
 
-- 添加颁发、解析、认证 jwt 等工具类
+- 添加颁发、解析、认证 `jwt` 等工具类
 
 新建 `src/main/java/com/hezf/demo/JWTProvider.java` 文件，这个类的作用是：
 
-1、生成 jwt（在登录的时候生成，根据 username 和对应的权限列表）
-2、检验 jwt 有效性和提取 jwt 中的认证信息（使用 jwt 访问接口的时候）
+1、生成 `jwt`（在登录的时候生成，根据 `username` 和对应的权限列表）
+2、检验 `jwt` 有效性和提取 `jwt` 中的认证信息（使用 `jwt` 访问接口的时候）
 
 ```java
 @Component
@@ -606,10 +598,10 @@ public class JWTProvider {
 
 新建`src/main/java/com/hezf/demo/JWTFilter.java`文件，这个类的作用是：
 
-1、除了登录接口以外，其他接口在进入接口之前，都需要经过 JWTFilter 的处理
-2、验证 jwt 的合法性和有效期等
-3、提取 jwt 中的 username 和 权限，生成 Authentication 存到 security 上下文
-4、security 上下文中有了 Authentication ，那就代表着已认证，后续也可以在接口中使用 Authentication 中的信息
+1、除了登录接口以外，其他接口在进入接口之前，都需要经过 `JWTFilter` 的处理
+2、验证 `jwt` 的合法性和有效期等
+3、提取 `jwt` 中的 `username` 和 权限，生成 `Authentication` 存到 `security` 上下文
+4、`security` 上下文中有了 `Authentication` ，那就代表着已认证，后续也可以在接口中使用 `Authentication` 中的信息
 
 ```java
 
@@ -655,7 +647,7 @@ public class JWTFilter extends OncePerRequestFilter {
 
 ```
 
-- 修改 springsecurity 配置，因为使用了 jwt 进行认证，所以不需要 csrf 保护了
+- 修改 `springsecurity` 配置，因为使用了 `jwt` 进行认证，所以不需要 `csrf` 保护了
 
 ```java
   // 关闭 csrf 保护
@@ -665,7 +657,7 @@ public class JWTFilter extends OncePerRequestFilter {
   http.addFilterBefore(new JWTFilter(), LogoutFilter.class);
 ```
 
-- 重写登录接口，像上次一样，提取 username 和 password 进行登录认证，认证成功以后返回 jwt，失败的话返回错误信息
+- 重写登录接口，像上次一样，提取 `username` 和 `password` 进行认证，认证成功以后返回 jwt，失败的话返回错误信息
 
 ```java
 class LoginRequest {
@@ -722,7 +714,7 @@ public class LoginController {
 
 - 测试接口
 
-使用 postman 等测试工具，发起 post 请求，格式为 json
+使用 `postman` 等测试工具，发起 `post` 请求，格式为 `json`
 
 1. 当发送的用户名密码错误的时候，返回 `{"error":"用户名或密码错误"}`
 2. 正确的话返回 `{"jwt": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyIiwicGVybWlzc2lvbnMiOiJVU0VSIiwiZXhwIjoxNjk1MzUxODAyfQ._cNekfYovmnjWKBaKVCiErzu76q-Aj3gZhUsDiITzAA"}`
@@ -732,16 +724,16 @@ public class LoginController {
 
 ## 多个 SecurityFilterChain
 
-接下来来看一个更加复杂的情况，如何在已经使用会话做认证的情况下，添加 JWT 认证做 API 接口管理？也就是说，需要同时支持两种认证：
+接下来来看一个更加复杂的情况，如何在已经使用会话做认证的情况下，添加 `JWT` 认证做 `API` 接口管理？也就是说，需要同时支持两种认证：
 
 1. 会话认证：访问需要认证的页面，没有认证的情况下自动跳转到登录页面，登录成功后自动跳回刚才访问的页面
-2. JWT 认证：支持通过 API 接口进行登录和访问 API 接口
+2. `JWT` 认证：支持通过 `API` 接口进行登录和访问 `API` 接口
 
-答案是同时可以设置多个 `SecurityFilterChain`，然后根据访问不同的 URL 确定使用哪个 `SecurityFilterChain`，只有第一个匹配的 SecurityFilterChain 被调用，如下所示：
+答案是同时可以设置多个 `SecurityFilterChain`，然后根据访问不同的 `URL` 确定使用哪个 `SecurityFilterChain`，只有第一个匹配的 `SecurityFilterChain` 被调用，如下所示：
 
 ![multi-securityfilterchain](https://springdoc.cn/spring-security/_images/servlet/architecture/multi-securityfilterchain.png)
 
-如果请求的 URL 是 `/api/user/`，它首先与 `/api/**` 的 SecurityFilterChain0 模式匹配，所以只有 SecurityFilterChain0 被调用，尽管它也与 SecurityFilterChain1 匹配,但是只调用第一个匹配的。
+如果请求的 `URL` 是 `/api/user/`，它首先与 `/api/**` 的 `SecurityFilterChain0` 模式匹配，所以只有 `SecurityFilterChain0` 被调用，尽管它也与 `SecurityFilterChain1` 匹配,但是只调用第一个匹配的
 
 - 首先准备好两套登录接口
 
@@ -867,8 +859,8 @@ src/main/java/com/hezf/demo/jwt/JWTController.java
 src/main/java/com/hezf/demo/session/SessionController.java
 ```
 
-- JWT 所需的 `JWTProvider` 和 `JWTFilter` 内容不变
-- 最后是配置 SecurityFilterChain
+- `JWT` 所需的 `JWTProvider` 和 `JWTFilter` 内容不变
+- 最后是配置 `SecurityFilterChain`
 
 ```java
 @EnableWebSecurity
@@ -941,10 +933,10 @@ public class DefaultSecurityConfig {
 2. 输入用户名、密码后，会自动跳回 `http://localhost:8080/user`，并显示 `Hello User!`
 3. 最后，将浏览器 访问地址改为 `http://localhost:8080/admin` ,会显示 `没有对应的权限` ，会话认证基本验证完成
 
-接下来测试 JWT 认证：
+接下来测试 `JWT` 认证：
 
 1. 使用调试工具 POST `http://localhost:8080/api/login`，body 里面填写 `{"username": "user","password": "password"}`
 2. 登录成功后，获取返回值，复制 jwt 的值，在 Header 中添加 `Authorization: Bearer jwt的值`
 3. 访问 GET `http://localhost:8080/api/user`，可以正常访问接口，然后携带相同的 Header 继续访问 `http://localhost:8080/api/admin`, 返回 `没有对应的权限`
 
-以上可以保证，两个 SecurityFilterChain 都在运行，并且
+以上可以保证，两个 `SecurityFilterChain` 都在运行，并且都是独立的，互不影响。这样做的好处是可以给单独某一些 `API` 设置独有的认证授权，和其他的互不影响
