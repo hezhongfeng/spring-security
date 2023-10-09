@@ -2,13 +2,27 @@
 
 Spring Security 提供了对身份认证、授权和针对常见漏洞的保护的全面支持，可以轻松地集成到任何基于 Spring 的应用程序中。
 
-详细点说就是提供了：
+主要就是提供了：
 
 认证（Authentication）：可以理解为登录，验证访问者的身份。包括用户名密码认证、手机号短信验证码认证、指纹识别认证、面容识别认证等等
 
 授权（Authorization）：授权发生在系统完成身份认证之后，最终会授予你访问资源（如信息，文件，数据库等等）的权限，授权决定了你访问系统的能力以及达到的程度，比如只有拿到了操作用户的授权，才可以管理用户
 
 漏洞保护：跨域、csrf 等防护
+
+就我个人而言，以前对 Spring Security 的认识总是稀里糊涂的，所以自己从零开始一点一点的实现了一遍目前能遇到的大多数场景，下面是逐步探索 spring-security 使用方法的整个过程，其中包括：
+
+1. Spring Boot 项目初始化
+2. 引入 Spring Security
+3. 内存认证
+4. SecurityConfig
+5. UserDetailsService
+6. 接口权限限制
+7. 获取认证信息
+8. 自定义登录页面
+9. 自定义登录接口
+10. JWT 认证
+11. 多个 SecurityFilterChain
 
 ## 项目初始化
 
@@ -57,7 +71,7 @@ public class IndexController {
 
 ## 内存认证
 
-在`src/main/java/com/hezf/demo/DemoApplication.java`同级别目录新建文件`DefaultSecurityConfig.java`：
+上面的密码使用起来太麻烦了，还是想办法建几个固定账号吧，在`src/main/java/com/hezf/demo/DemoApplication.java`同级别目录新建文件`DefaultSecurityConfig.java`：
 
 ```java
 package com.hezf.demo;
@@ -87,11 +101,11 @@ public class DefaultSecurityConfig {
 
 这时候重启项目，发现控制台没有`Using generated security password`等信息出现了，可以使用 `user` 和 `password` 进行登录，登录后可以访问 IndexController
 
-这种内存用户可以快速的验证登录和一些权限控制，在项目中添加了 `Spring Security` 之后，默认对所有接口都开启了访问控制，只有已认证用户（已登录）才可以访问，接下来我们尝试进行对 security 进行配置
+这种内存用户可以快速的验证登录和一些权限控制，在项目中添加了 `Spring Security` 之后，默认对所有接口都开启了访问控制，只有已认证用户（已登录）才可以访问，接下来我们尝试对 security 进行配置
 
 ## SecurityConfig
 
-在项目中添加了 `Spring Security`后，必须登录才能访问接口，那么怎么把这个限制关掉？这时候可以使用 SecurityFilterChain，在 DefaultSecurityConfig 添加 SecurityFilterChain
+在项目中添加 `Spring Security`后，必须登录才能访问接口，那么怎么把这个限制关掉？这时候可以使用 `SecurityFilterChain`，在 D`efaultSecurityConfig` 添加 `SecurityFilterChain`：
 
 ```java
 @EnableWebSecurity
@@ -116,7 +130,7 @@ public class DefaultSecurityConfig {
 
 ```
 
-当添加上面的配置重启后，发现接口可以随便访问了，这是因为默认情况下，Spring Security 接口保护、表单登录被启用。然而，只要提供任何 SecurityFilterChain 配置，就必须明确接口保护和基于表单的登录。为了实现之前的接口保护和表单登录，需要添加如下配置：
+当添加上面的配置重启后，发现接口可以随便访问不需要登录了，这是因为默认情况下，`Spring Security` 的接口保护、表单登录被启用。然而，只要提供 `SecurityFilterChain` 配置，就必须显示启用接口保护和表单登录，否咋就不会生效。为了实现之前的接口保护和表单登录，需要添加如下配置，启用接口保护和表单登录：
 
 ```java
   @Bean
@@ -134,7 +148,7 @@ public class DefaultSecurityConfig {
 
 ## UserDetailsService
 
-前面我们使用了内存用户通过登录获取认证，来访问接口。实际在开发过程中用户信息肯定是要持久化的，要存到数据库中去，这时候最好实现一个 UserDetailsService 用来检索用户名、密码和其他属性。
+前面我们使用了内存用户通过登录获取认证，来访问接口。实际在开发过程中用户信息肯定是要持久化的，要存到数据库中去，这时候最好实现一个 `UserDetailsService` 用来检索用户名、密码和其他属性。
 
 新建`CustomUserDetailsService.java`文件：
 
@@ -200,13 +214,13 @@ public class DefaultSecurityConfig {
 }
 ```
 
-然后就可以用 `user` 和 `user1` 完成登录了
+然后就可以用 `user` 和 `user1` 登录了
 
-## API 接口限制
+## 接口权限限制
 
-在实际开发中，有的接口可以随便访问，比如 login 接口，有的接口必须登录后才可以访问，比如查询当前用户信息的接口。有的接口可以管理其他用户，那就必须具有管理员权限才可以访问。
+在实际开发中，有的接口可以随便访问，比如 `login` 接口，有的接口必须登录后才可以访问，比如查询当前用户信息的接口。有的接口可以管理其他用户，那就必须具有管理员权限才可以访问。
 
-接下来创建 3 种接口，一种不需要登录，一种登录就行，另外一个需要特殊权限才可以访问。首先创建这 3 个接口：
+接下来创建 3 种接口，一种不需要登录，一种已登录就行，另外一种需要特殊权限才可以访问。首先创建这 3 个接口：
 
 ```java
 @RestController
@@ -268,11 +282,11 @@ public class IndexController {
   }
 ```
 
-重启项目访问 `http://localhost:8080/public` 成功访问。接下来访问 `http://localhost:8080/user` 会要求登录，我们输入 `user` 的用户名和密码，成功访问。接下来访问 `http://localhost:8080/admin` 发现返回了 `403` 状态吗，告诉我们权限不正确，这时候清空下 cookie 重新使用 `admin` 登录即可访问。到此，我们实现了最小型的接口权限控制
+重启项目访问 `http://localhost:8080/public` 成功访问。接下来访问 `http://localhost:8080/user` 会要求登录，我们输入 `user` 的用户名和密码，成功访问。继续访问 `http://localhost:8080/admin` 发现返回了 `403` 状态吗，告诉我们权限不正确，这时候清空下 `cookie` 重新使用 `admin` 登录即可访问。到此，我们实现了最小型的接口权限控制
 
-## 认证持久化
+## 获取认证信息
 
-当用户第一次请求受保护的资源时，会被重定向到登录页面，这时候用户被设置一个新的 `Session ID`，存在 `Cookies` 中的 `JSESSIONID`。随后的每次请求都会携带这个 `Cookie`，用于在接下来的会话中认证用户的身份。使用 `SecurityContext` ，可以获取当前用户的认证信息，他们之间的关系可以看图：
+当用户第一次请求受保护的接口时，会被重定向到登录页面，这时候后端服务会分配给用户一个会话 ID，存于 `Cookies` 中的 `JSESSIONID`。随后的每次请求都会携带这个 `Cookie`，用于在接下来的会话中认证用户的身份。使用 `SecurityContext` ，可以获取当前用户的认证信息，他们之间的关系可以看图：
 
 ![securitycontextholder](https://springdoc.cn/spring-security/_images/servlet/authentication/architecture/securitycontextholder.png)
 
@@ -298,9 +312,11 @@ public class IndexController {
   }
 ```
 
-上面的代码是在已认证的情况下，认证过程是 `SpringSecurity` 提供的登录页面和接口，下一步自己实现登录过程
+上面的代码只有在已认证的情况下才有效，认证的过程是 `SpringSecurity` 提供的登录页面和接口，下一步自己实现登录过程
 
 ## 自定义登录页面
+
+首先尝试自定义登录页面，这样可以直观的看到前端页面是怎么提交用户名、密码的
 
 - 在`build.gradle`添加依赖`implementation "org.springframework.boot:spring-boot-starter-thymeleaf"`
 - 新建 `src/main/resources/templates/login.html` 页面：
@@ -492,9 +508,9 @@ public class MyAccessDeniedHandler implements AccessDeniedHandler {
 3. 登录后自动跳转到之前想访问的接口
 4. 权限验证
 
-## JWT 登录
+## JWT 认证
 
-上面我们完成了，自定义的接口，自动跳转等等。。。但是现在更普遍的是前后端分离的项目，这样更容易扩展应用场景。下面来实现登录后颁发 `jwt`，以及通过 `jwt` 来进行认证和权限的判断。
+上面我们完成了自定义的接口，自动跳转等等。。。但是现在更普遍的是前后端分离的项目，这样更容易扩展应用场景。下面来实现登录后颁发 `jwt`，以及通过 `jwt` 来进行认证和权限判断
 
 - 引入所需的 `jwt` 库
 
