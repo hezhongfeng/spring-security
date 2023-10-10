@@ -1,6 +1,6 @@
-# 简介
+# Spring Security 简介
 
-Spring Security 提供了对身份认证、授权和针对常见漏洞的保护的全面支持，可以轻松地集成到任何基于 Spring 的应用程序中。
+`Spring Security` 提供了对身份认证、授权和针对常见漏洞的保护的全面支持，可以轻松地集成到任何基于 `Spring` 的应用程序中。
 
 主要就是提供了：
 
@@ -8,7 +8,7 @@ Spring Security 提供了对身份认证、授权和针对常见漏洞的保护�
 - 授权（Authorization）：授权发生在系统完成身份认证之后，最终会授予你访问资源（如信息，文件，数据库等等）的权限，授权决定了你访问系统的能力以及达到的程度，比如只有拿到了操作用户的授权，才可以管理用户
 - 漏洞保护：跨域、csrf 等防护
 
-就我个人而言，以前对 Spring Security 的认识非常不清楚，所以这次从零开始一点一点的尝试了一遍目前能遇到的大多数场景，下面是逐步探索 spring-security 使用方法的整个过程，其中包括：
+就我个人而言，以前对 `Spring Security` 的认识非常不清楚，所以这次从零开始一点一点的尝试了一遍目前能遇到的大多数场景，下面是逐步探索 `Spring Security` 使用方法的整个过程，其中包括：
 
 1. Spring Boot 项目初始化
 2. 引入 Spring Security
@@ -24,9 +24,9 @@ Spring Security 提供了对身份认证、授权和针对常见漏洞的保护�
 
 ## 项目初始化
 
-当前的 Spring Boot 版本是 3.1.2，Spring Security 的版本是 6.1.2
+当前的 `Spring Boot` 版本是 3.1.2，`Spring Security` 的版本是 6.1.2
 
-我们使用 [Spring Initializr](https://start.spring.io/) 添加 `Spring Web` 完成项目的创建
+首先使用 [Spring Initializr](https://start.spring.io/) 添加 `Spring Web` 完成项目的创建
 
 ![start](https://gitee.com/hezf/assets/raw/master/202308231407299.png)
 
@@ -310,7 +310,7 @@ public class IndexController {
   }
 ```
 
-上面的代码只有在已认证的情况下才有效，认证的过程是 `SpringSecurity` 提供的登录页面和接口，下一步自己实现登录过程
+上面的代码只有在已认证的情况下才有效，认证的过程是 `Spring Security` 提供的登录页面和接口，下一步自己实现登录过程
 
 ## 自定义登录页面
 
@@ -671,7 +671,7 @@ public class JWTFilter extends OncePerRequestFilter {
   http.addFilterBefore(new JWTFilter(), LogoutFilter.class);
 ```
 
-- 重写登录接口，像上次一样，提取 `username` 和 `password` 进行认证，认证成功以后返回 jwt，失败的话返回错误信息
+- 重写登录接口，像上次一样，提取 `username` 和 `password` 进行认证，认证成功以后返回 `jwt`，失败的话返回错误信息
 
 ```java
 class LoginRequest {
@@ -725,6 +725,8 @@ public class LoginController {
 }
 
 ```
+
+上面的 `authenticationManager.authenticate(token);` 这句会完成用户名密码的认证工作，会调用 `CustomUserDetailsService.loadUserByUsername` 后进行对比，失败后返回错误信息
 
 - 测试接口
 
@@ -953,4 +955,8 @@ public class DefaultSecurityConfig {
 2. 登录成功后，获取返回值，复制 jwt 的值，在 Header 中添加 `Authorization: Bearer jwt的值`
 3. 访问 GET `http://localhost:8080/api/user`，可以正常访问接口，然后携带相同的 Header 继续访问 `http://localhost:8080/api/admin`, 返回 `没有对应的权限`
 
-以上可以保证，两个 `SecurityFilterChain` 都在运行，并且都是独立的，互不影响。这样做的好处是可以给单独某一些 `API` 设置独有的认证授权，和其他的互不影响
+以上说明，两个 `SecurityFilterChain` 都在运行，并且都是独立的，互不影响。这样做的好处是可以给单独某一些 `API` 设置独有的认证授权，和其他的互不影响。
+
+## 总结
+
+好了，目前完成了较复杂的 `Spring Security` 配置、认证和权限验证。整个过程下来之后，认识了一些`Spring Security` 的默认规则和常用的方法套路，大部分的场景都可以覆盖。根据以上内容可实现基于 `RBAC` 的访问控制，这部分内容可以参考以前的[项目](https://github.com/hezhongfeng/spring-boot-rbac)，一般的项目基本上够用了。
