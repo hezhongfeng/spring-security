@@ -4,17 +4,15 @@ Spring Security 提供了对身份认证、授权和针对常见漏洞的保护�
 
 主要就是提供了：
 
-认证（Authentication）：可以理解为登录，验证访问者的身份。包括用户名密码认证、手机号短信验证码认证、指纹识别认证、面容识别认证等等
+- 认证（Authentication）：可以理解为登录，验证访问者的身份。包括用户名密码认证、手机号短信验证码认证、指纹识别认证、面容识别认证等等
+- 授权（Authorization）：授权发生在系统完成身份认证之后，最终会授予你访问资源（如信息，文件，数据库等等）的权限，授权决定了你访问系统的能力以及达到的程度，比如只有拿到了操作用户的授权，才可以管理用户
+- 漏洞保护：跨域、csrf 等防护
 
-授权（Authorization）：授权发生在系统完成身份认证之后，最终会授予你访问资源（如信息，文件，数据库等等）的权限，授权决定了你访问系统的能力以及达到的程度，比如只有拿到了操作用户的授权，才可以管理用户
-
-漏洞保护：跨域、csrf 等防护
-
-就我个人而言，以前对 Spring Security 的认识总是稀里糊涂的，所以自己从零开始一点一点的实现了一遍目前能遇到的大多数场景，下面是逐步探索 spring-security 使用方法的整个过程，其中包括：
+就我个人而言，以前对 Spring Security 的认识非常不清楚，所以这次从零开始一点一点的尝试了一遍目前能遇到的大多数场景，下面是逐步探索 spring-security 使用方法的整个过程，其中包括：
 
 1. Spring Boot 项目初始化
 2. 引入 Spring Security
-3. 内存认证
+3. 内存用户登录
 4. SecurityConfig
 5. UserDetailsService
 6. 接口权限限制
@@ -69,7 +67,7 @@ public class IndexController {
 
 这是告诉我们，这个用户和密码只是在开发阶段调试使用，生产环境不要这么使用，接下来我们自定义用户和密码。
 
-## 内存认证
+## 内存用户登录
 
 上面的密码使用起来太麻烦了，还是想办法建几个固定账号吧，在`src/main/java/com/hezf/demo/DemoApplication.java`同级别目录新建文件`DefaultSecurityConfig.java`：
 
@@ -144,7 +142,7 @@ public class DefaultSecurityConfig {
   }
 ```
 
-如果想把接口保护去掉，那么上面的配置改为`http.authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll());` 意思就是放行所有请求
+第一句配置了访问任何接口都需要认证，第二句是开启表单登录。如果想把接口保护去掉，那么上面的配置改为`http.authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll());` 意思就是放行所有请求
 
 ## UserDetailsService
 
@@ -195,7 +193,7 @@ public class CustomUserDetailsService implements UserDetailsService {
 
 ```
 
-`DefaultSecurityConfig` 修改一下：
+`DefaultSecurityConfig` 修改一下，去掉 `DefaultSecurityConfig` 中的 `UserDetailsService`：
 
 ```java
 @EnableWebSecurity
@@ -214,13 +212,13 @@ public class DefaultSecurityConfig {
 }
 ```
 
-然后就可以用 `user` 和 `user1` 登录了
+然后就可以用 `user` 和 `user1` 登录了，以上是为了模拟真实的环境，一般在 `loadUserByUsername` 中进行数据库查询用户信息，然后返回装填好信息的 `UserDetails` 进行认证
 
 ## 接口权限限制
 
 在实际开发中，有的接口可以随便访问，比如 `login` 接口，有的接口必须登录后才可以访问，比如查询当前用户信息的接口。有的接口可以管理其他用户，那就必须具有管理员权限才可以访问。
 
-接下来创建 3 种接口，一种不需要登录，一种已登录就行，另外一种需要特殊权限才可以访问。首先创建这 3 个接口：
+接下来创建 3 种接口，一种不需要认证，一种已认证就行，最后一种需要某种权限才可以访问。首先创建这 3 个接口：
 
 ```java
 @RestController
@@ -286,7 +284,7 @@ public class IndexController {
 
 ## 获取认证信息
 
-当用户第一次请求受保护的接口时，会被重定向到登录页面，这时候后端服务会分配给用户一个会话 ID，存于 `Cookies` 中的 `JSESSIONID`。随后的每次请求都会携带这个 `Cookie`，用于在接下来的会话中认证用户的身份。使用 `SecurityContext` ，可以获取当前用户的认证信息，他们之间的关系可以看图：
+当用户第一次访问受保护的接口时，会被重定向到登录页面，这时候后端服务会分配给用户一个会话 ID，存于 `Cookies` 中的 `JSESSIONID`。随后的每次请求都会携带这个 `Cookie`，用于在接下来的会话中认证用户的身份。使用 `SecurityContext` ，可以获取当前用户的认证信息，他们之间的关系可以看图：
 
 ![securitycontextholder](https://springdoc.cn/spring-security/_images/servlet/authentication/architecture/securitycontextholder.png)
 
@@ -501,12 +499,12 @@ public class MyAccessDeniedHandler implements AccessDeniedHandler {
   }
 ```
 
-运行项目，浏览器直接访问 `http://localhost:8080/user` 会自动跳转到自定义登录页面，输入 `user` 用户名和密码后，会自动跳转回刚才访问的 `http://localhost:8080/user`，这时候继续访问 `http://localhost:8080/admin` 会返回 `"没有对应的权限"`。到这里我们就完成了：
+运行项目，浏览器直接访问 `http://localhost:8080/user` 会自动跳转到自定义登录页面，输入 `user` 用户名和密码后，会自动跳转回刚才访问的 `http://localhost:8080/user`，这时候继续访问 `http://localhost:8080/admin` 会返回 `"没有对应的权限"`，到这里我们就完成了：
 
 1. 自定义用户名密码验证的页面和接口
 2. 未登录自动跳转到登录页面
 3. 登录后自动跳转到之前想访问的接口
-4. 权限验证
+4. 接口权限验证
 
 ## JWT 认证
 
